@@ -44,10 +44,18 @@ import {
 // `@hyperframes/aws-lambda`, whose types come from `dist/index.d.ts` after
 // aws-lambda's build runs — a chicken-and-egg with producer's tsc that
 // would otherwise fail the whole-repo build.
+//
+// The dynamic import path is indirected through a variable so tsc can't
+// statically resolve the target file. Without this indirection tsc still
+// pulls `regression-harness-lambda-local.ts` (and its `@hyperframes/aws-lambda`
+// imports) into the program even though the tsconfig `exclude` list
+// nominally hides it. `tsx` resolves the path normally at runtime.
 import type { RunLambdaLocalRender } from "./regression-harness-lambda-local-types.js";
 
+const LAMBDA_LOCAL_MODULE = "./regression-harness-lambda-local.js";
+
 async function loadLambdaLocalRender(): Promise<RunLambdaLocalRender> {
-  const mod = (await import("./regression-harness-lambda-local.js")) as {
+  const mod = (await import(LAMBDA_LOCAL_MODULE)) as {
     runLambdaLocalRender: RunLambdaLocalRender;
   };
   return mod.runLambdaLocalRender;
