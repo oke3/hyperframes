@@ -147,6 +147,8 @@ describe("inlineSubCompositions – #ID selector scoping divergence", () => {
    * Proper fix (follow-up): make the producer path add data-hf-authored-id
    * to the host element when the inner root has an id attribute.
    */
+  // FIXME(#969): flip these assertions once the producer path adds
+  // data-hf-authored-id to the host element. See PR #965 "Proper fix (follow-up)".
   it("documents the divergence: producer path lacks data-hf-authored-id element", () => {
     const document = makeHostDocument("intro");
     const host = document.querySelector('[data-composition-src="intro.html"]')!;

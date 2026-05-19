@@ -1724,40 +1724,39 @@ export function initSandboxRuntimeModular(): void {
     }
   };
 
-  // Unpause all non-root timelines. Per GSAP semantics, paused(false) on a
-  // child timeline that hasn't been reached by the parent's playhead is a
-  // no-op — the child won't fire onStart/onUpdate until the parent seeks
-  // past its insertion point. Per-frame visibility is gated by the engine.
-  const activateNestedChildTimelines = (masterTimeline: RuntimeTimelineLike) => {
+  // Unpause all non-root timelines registered in window.__timelines (siblings
+  // in the registry, not GSAP child tweens). Matches the naming convention in
+  // player.ts:32 (forEachSiblingTimeline) and player.ts:89 (activateSiblingTimelines).
+  //
+  // Unlike the player's seek path which re-pauses siblings after seeking,
+  // render-seek is one-frame-at-a-time with no transport tick between frames,
+  // so the residual unpaused state is harmless — the next call re-activates
+  // idempotently.
+  const activateSiblingTimelines = (masterTimeline: RuntimeTimelineLike) => {
     const timelines = (window.__timelines ?? {}) as Record<string, RuntimeTimelineLike | undefined>;
     for (const tl of Object.values(timelines)) {
       if (!tl || tl === masterTimeline) continue;
       try {
-        const tlWithPaused = tl as RuntimeTimelineLike & {
-          paused?: (value?: boolean) => unknown;
-        };
-        if (typeof tlWithPaused.paused === "function") {
-          tlWithPaused.paused(false);
-        }
+        tl.play();
       } catch (err) {
-        swallow("runtime.init.activateNested", err);
+        swallow("runtime.init.activateSiblings", err);
       }
     }
   };
 
-  const seekTimelineAndAdapters = (t: number, activateChildren = false) => {
+  const seekTimelineAndAdapters = (t: number, opts?: { activateChildren?: boolean }) => {
     const tl = state.capturedTimeline;
     if (tl) {
       // When rendering frame-by-frame (activateChildren=true), ensure all
-      // nested child timelines are unpaused before seeking the root. GSAP
+      // sibling timelines are unpaused before seeking the root. GSAP
       // does not propagate totalTime() to children that are internally
       // paused, which leaves sub-compositions at their initial CSS state
       // (typically opacity:0). This mirrors the activateSiblingTimelines
       // call in player.ts renderSeek and is critical for sub-compositions
       // whose data-start is at or near 0 — they are added to the root
       // while it is paused and may never receive an explicit play().
-      if (activateChildren) {
-        activateNestedChildTimelines(tl);
+      if (opts?.activateChildren) {
+        activateSiblingTimelines(tl);
       }
       try {
         if (typeof tl.totalTime === "function") {
@@ -2033,7 +2032,7 @@ export function initSandboxRuntimeModular(): void {
     state.currentTime = clock.now();
     state.isPlaying = false;
     state.mediaForceSyncNextTick = true;
-    seekTimelineAndAdapters(state.currentTime, true);
+    seekTimelineAndAdapters(state.currentTime, { activateChildren: true });
     syncMediaForCurrentState();
     postState(true);
   };

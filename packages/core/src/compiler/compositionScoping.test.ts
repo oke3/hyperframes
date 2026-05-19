@@ -513,6 +513,17 @@ window.__afterTimeline = window.__timelines.scene;
     expect(scoped).not.toMatch(/#intro\b/);
   });
 
+  it('does not rewrite [id="intro"] attribute selectors', () => {
+    // The function only targets #intro hash selectors, not [id="intro"] attribute selectors
+    const result = scopeCssToComposition(
+      '[id="intro"] .title { color: red; }',
+      "intro",
+      undefined,
+      "intro",
+    );
+    expect(result).toContain('[id="intro"]');
+  });
+
   it("wraps scripts with authored root id normalization for #id GSAP selectors", () => {
     const { document } = parseHTML(`
       <div data-composition-id="intro">
