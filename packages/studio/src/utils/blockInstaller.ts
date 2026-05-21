@@ -144,12 +144,8 @@ export async function addBlockToProject(
 
       const zIndex = getMaxZIndexFromIframe(opts.previewIframe ?? null) + 1;
 
-      const width = isBlock
-        ? (block as { dimensions: { width: number } }).dimensions.width
-        : hostDims.width;
-      const height = isBlock
-        ? (block as { dimensions: { height: number } }).dimensions.height
-        : hostDims.height;
+      const width = hostDims.width;
+      const height = hostDims.height;
 
       const left = visualPosition ? Math.round(visualPosition.left) : 0;
       const top = visualPosition ? Math.round(visualPosition.top) : 0;
