@@ -184,15 +184,30 @@
     lg.renderGlassElements();
   }
 
+  var lgReady = false;
   lg.waitForInit().then(function (ok) {
     if (!ok) return;
-    renderFrame(0);
+    lgReady = true;
+    glassCanvas.onpaint = function () { renderFrame(0); };
+    if (glassCanvas.requestPaint) glassCanvas.requestPaint();
   });
 
   window.__timelines = window.__timelines || {};
   var tl = gsap.timeline({ paused: true });
 
-  tl.to({}, { duration: 8, ease: "none", onUpdate: function () { renderFrame(tl.time()); } }, 0);
+  tl.to({}, { duration: 8, ease: "none", onUpdate: function () {
+    var t = tl.time();
+    uniforms.uTime.value = t;
+    threeRenderer.render(threeScene, threeCamera);
+    if (lgReady) {
+      glassCanvas.onpaint = function () {
+        glassCtx.clearRect(0, 0, 1920, 1080);
+        glassCtx.drawImage(threeCanvas, 0, 0, 1920, 1080);
+        lg.renderGlassElements();
+      };
+      if (glassCanvas.requestPaint) glassCanvas.requestPaint();
+    }
+  }}, 0);
 
   // Notification 1: slide in from right, stay top-right, gentle float, slide out
   tl.fromTo("#gp1", { left: "1980px" }, { left: "1340px", duration: 0.7, ease: "power3.out" }, 0.2);
