@@ -1,4 +1,4 @@
-import type { LintContext, HyperframeLintFinding } from "../context";
+import type { LintContext, HyperframeLintFinding, ExtractedBlock } from "../context";
 import { findHtmlTag, readAttr, readJsonAttr, stripJsComments, truncateSnippet } from "../utils";
 import { COMPOSITION_VARIABLE_TYPES } from "../../core.types";
 
@@ -61,6 +61,19 @@ function extractCssSelectors(css: string): string[] {
 function leftmostCompoundClasses(selector: string): string[] {
   const leftmost = selector.trim().split(/[\s>+~]+/)[0] ?? "";
   return (leftmost.match(/\.([\w-]+)/g) ?? []).map((c) => c.slice(1));
+}
+
+// Distinct selectors across all <style> blocks whose leftmost compound keys off one
+// of the root element's own classes — the ones that break under id-scoping.
+function rootClassStyledSelectors(styles: ExtractedBlock[], rootClasses: string[]): string[] {
+  const offenders: string[] = [];
+  for (const style of styles) {
+    for (const selector of extractCssSelectors(style.content)) {
+      const hitsRoot = leftmostCompoundClasses(selector).some((c) => rootClasses.includes(c));
+      if (hitsRoot && !offenders.includes(selector)) offenders.push(selector);
+    }
+  }
+  return offenders;
 }
 
 export const compositionRules: Array<(ctx: LintContext) => HyperframeLintFinding[]> = [
@@ -624,13 +637,7 @@ export const compositionRules: Array<(ctx: LintContext) => HyperframeLintFinding
     const rootClasses = (readAttr(rootTag.raw, "class") || "").split(/\s+/).filter(Boolean);
     if (rootClasses.length === 0) return [];
 
-    const offenders: string[] = [];
-    for (const style of styles) {
-      for (const selector of extractCssSelectors(style.content)) {
-        const hitsRoot = leftmostCompoundClasses(selector).some((c) => rootClasses.includes(c));
-        if (hitsRoot && !offenders.includes(selector)) offenders.push(selector);
-      }
-    }
+    const offenders = rootClassStyledSelectors(styles, rootClasses);
     if (offenders.length === 0) return [];
 
     const example = offenders.slice(0, 3).join(", ");
