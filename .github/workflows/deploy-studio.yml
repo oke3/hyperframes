@@ -1,0 +1,78 @@
+name: Deploy Studio to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/studio/**"
+      - "packages/core/**"
+      - "packages/player/**"
+      - "packages/sdk/**"
+      - "packages/parsers/**"
+      - "packages/studio-server/**"
+      - "packages/lint/**"
+      - ".github/workflows/deploy-studio.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  HYPERFRAMES_NO_TELEMETRY: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0bd08f07180b6 # v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: |
+          bun run --filter @hyperframes/parsers build
+          bun run --filter @hyperframes/lint build
+          bun run --filter @hyperframes/studio-server build
+          bun run --filter @hyperframes/core build
+
+      - name: Build Studio
+        working-directory: packages/studio
+        run: bunx vite build
+        env:
+          VITE_HF_DEPLOY_TARGET: gh-pages
+
+      - name: Prepare static output
+        run: |
+          mkdir -p packages/studio/dist
+          touch packages/studio/dist/.nojekyll
+          cp packages/studio/public/404.html packages/studio/dist/404.html 2>/dev/null || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: packages/studio/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db9016429d0b1e0000000000000000000000000 # v4
