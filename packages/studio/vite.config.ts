@@ -168,6 +168,7 @@ function devProjectApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), devProjectApi()],
+  base: process.env.VITE_HF_DEPLOY_TARGET === "gh-pages" ? "/hyperframes/" : "/",
   define: {
     __STUDIO_VERSION__: JSON.stringify(studioPkg.version),
   },
